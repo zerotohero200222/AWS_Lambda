@@ -1,3 +1,7 @@
+provider "aws" {
+  region = var.aws_region
+}
+
 data "aws_iam_policy_document" "assume_role" {
   statement {
     effect = "Allow"
@@ -10,8 +14,14 @@ data "aws_iam_policy_document" "assume_role" {
 }
 
 resource "aws_iam_role" "iam_for_lambda" {
-  name               = "iam_for_lambda-${random_string.suffix.result}"
+  name               = "iam_for_lambda"
   assume_role_policy = data.aws_iam_policy_document.assume_role.json
+}
+
+resource "random_string" "suffix" {
+  length  = 6
+  upper   = false
+  special = false
 }
 
 data "archive_file" "lambda" {
@@ -21,11 +31,12 @@ data "archive_file" "lambda" {
 }
 
 resource "aws_lambda_function" "test_lambda" {
-  filename         = "lambda_function_payload.zip"
-  function_name    = var.lambda_function_name
-  role             = aws_iam_role.iam_for_lambda.arn
-  handler          = "index.test"
-  runtime          = "nodejs18.x"
+  function_name = "${var.lambda_function_name_prefix}-${random_string.suffix.result}"
+  filename      = "lambda_function_payload.zip"
+  role          = aws_iam_role.iam_for_lambda.arn
+  handler       = "index.test"
+  runtime       = "nodejs18.x"
+
   source_code_hash = data.archive_file.lambda.output_base64sha256
 
   environment {
