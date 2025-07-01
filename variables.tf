@@ -1,10 +1,11 @@
-variable "lambda_function_name" {
-  type    = string
-  default = "lambda-${random_string.suffix.result}"
+variable "lambda_function_name_prefix" {
+  type        = string
+  default     = "lambda"
+  description = "Prefix for the Lambda function name"
 }
 
-resource "random_string" "suffix" {
-  length  = 8
-  upper   = false
-  special = false
+variable "aws_region" {
+  type        = string
+  default     = "us-east-2"
+  description = "AWS region"
 }
