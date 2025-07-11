@@ -1,4 +1,4 @@
-name: Terraform Plan and Apply (Lambda)
+name: Terraform Plan and Apply (Lambda with Cost Estimation & S3 Backend)
 
 on:
   push:
@@ -30,6 +30,32 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-2
 
+      - name: 📦 Create Backend S3 Bucket (if not exists)
+        run: |
+          if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
+            echo "Creating backend S3 bucket..."
+            CREATE_ARGS="--bucket $BUCKET_NAME --region us-east-2"
+            aws s3api create-bucket $CREATE_ARGS
+
+            aws s3api put-bucket-versioning \
+              --bucket $BUCKET_NAME \
+              --versioning-configuration Status=Enabled
+
+            aws s3api put-bucket-encryption \
+              --bucket $BUCKET_NAME \
+              --server-side-encryption-configuration '{
+                "Rules": [
+                  {
+                    "ApplyServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
+                  }
+                ]
+              }'
+          else
+            echo "✅ S3 backend bucket already exists."
+          fi
+
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -54,12 +80,12 @@ jobs:
       - name: 💰 Show Cost Summary
         run: |
           {
-            echo "## 💰 Estimated Monthly Costs (Lambda)"
+            echo "## 💰 Estimated Monthly Costs (Lambda Function)"
             echo ""
-            echo "| Resource         | Quantity | Estimate         | Monthly Cost |"
-            echo "|------------------|----------|------------------|---------------|"
-            echo "| Lambda Execution | ~1M req  | ~$0.20/million   | ~$0.20        |"
-            echo "| Role IAM         | 1        | ~$0              | ~$0           |"
+            echo "| Resource          | Quantity | Estimate           | Monthly Cost |"
+            echo "|-------------------|----------|--------------------|---------------|"
+            echo "| Lambda Execution  | ~1M req  | ~$0.20/million     | ~$0.20        |"
+            echo "| IAM Role          | 1        | ~$0                | ~$0           |"
             echo ""
             echo "**Total Estimated Cost:** ~$0.20/month"
           } >> $GITHUB_STEP_SUMMARY
