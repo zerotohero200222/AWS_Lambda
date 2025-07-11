@@ -1,42 +1,110 @@
-name: Terraform Lambda Deploy
+name: Terraform Plan and Apply (Lambda)
 
 on:
   push:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  terraform:
-    name: Deploy Lambda
+  plan:
+    name: Terraform Plan (Dev)
     runs-on: ubuntu-latest
 
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      BUCKET_NAME: terraform-state-bharath-lambda
+
+    defaults:
+      run:
+        working-directory: .
+
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v3
+      - name: ✅ Checkout code
+        uses: actions/checkout@v3
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v3
-      with:
-        terraform_version: 1.5.0
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: us-east-2
+      - name: 🧰 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
 
-    - name: Terraform Init
-      run: terraform init
+      - name: ⚙️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=$BUCKET_NAME" \
+            -backend-config="key=lambda/dev/terraform.tfstate" \
+            -backend-config="region=us-east-2"
 
-    #- name: Terraform Validate
-      #run: terraform validate
+      - name: 🔍 Terraform Plan
+        run: terraform plan -var-file="environments/dev.tfvars" -out=tfplan
 
-    #- name: Terraform Plan
-      #run: terraform plan -out=tfplan
+      - name: 📤 Upload Plan Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
 
-    #- name: Terraform Apply
-      #run: terraform apply -auto-approve tfplan
+      - name: 💰 Show Cost Summary
+        run: |
+          {
+            echo "## 💰 Estimated Monthly Costs (Lambda)"
+            echo ""
+            echo "| Resource         | Quantity | Estimate         | Monthly Cost |"
+            echo "|------------------|----------|------------------|---------------|"
+            echo "| Lambda Execution | ~1M req  | ~$0.20/million   | ~$0.20        |"
+            echo "| Role IAM         | 1        | ~$0              | ~$0           |"
+            echo ""
+            echo "**Total Estimated Cost:** ~$0.20/month"
+          } >> $GITHUB_STEP_SUMMARY
 
-    - name: Terraform Destroy
-      id: destroy
-      run: terraform destroy --auto-approve
+  apply:
+    name: Terraform Apply (Manual Approval)
+    runs-on: ubuntu-latest
+    needs: plan
+    environment:
+      name: dev-approval
+      url: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    defaults:
+      run:
+        working-directory: .
+
+    steps:
+      - name: ✅ Checkout code
+        uses: actions/checkout@v3
+
+      - name: 🔐 Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-2
+
+      - name: 🧰 Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: ⚙️ Terraform Init
+        run: |
+          terraform init \
+            -backend-config="bucket=terraform-state-bharath-lambda" \
+            -backend-config="key=lambda/dev/terraform.tfstate" \
+            -backend-config="region=us-east-2"
+
+      - name: 📥 Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+          path: .
+
+      - name: 🚀 Terraform Apply
+        run: terraform apply tfplan
+
