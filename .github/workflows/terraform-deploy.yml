@@ -1,4 +1,4 @@
-name: Terraform Plan and Apply (Lambda with Cost Estimation & S3 Backend)
+name: Terraform Plan and Apply (Lambda with S3 Backend & Cost Estimation)
 
 on:
   push:
@@ -13,8 +13,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      BUCKET_NAME: terraform-state-bharath-sm-why563
-      REGION: us-east-1
+      BUCKET_NAME: terraform-state-bharath-lambda
 
     defaults:
       run:
@@ -29,17 +28,15 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.REGION }}
+          aws-region: us-east-2
 
       - name: 📦 Create Backend S3 Bucket (if not exists)
         run: |
           if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
             echo "Creating backend S3 bucket..."
-            CREATE_ARGS="--bucket $BUCKET_NAME --create-bucket-configuration LocationConstraint=$REGION --region $REGION"
-            if [ "$REGION" == "us-east-1" ]; then
-              CREATE_ARGS="--bucket $BUCKET_NAME --region $REGION"
-            fi
-            aws s3api create-bucket $CREATE_ARGS
+            aws s3api create-bucket --bucket $BUCKET_NAME \
+              --region us-east-2 \
+              --create-bucket-configuration LocationConstraint=us-east-2
 
             aws s3api put-bucket-versioning \
               --bucket $BUCKET_NAME \
@@ -70,7 +67,7 @@ jobs:
           terraform init \
             -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=$REGION"
+            -backend-config="region=us-east-2"
 
       - name: 🔍 Terraform Plan
         run: terraform plan -var-file="environments/dev.tfvars" -out=tfplan
@@ -115,7 +112,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: us-east-2
 
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -125,9 +122,9 @@ jobs:
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=terraform-state-bharath-sm-why563" \
+            -backend-config="bucket=terraform-state-bharath-lambda" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=us-east-1"
+            -backend-config="region=us-east-2"
 
       - name: 📥 Download Plan Artifact
         uses: actions/download-artifact@v4
