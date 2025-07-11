@@ -13,8 +13,8 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      BUCKET_NAME: terraform-state-bharath-sm-why563
       AWS_REGION: us-east-1
+      BUCKET_NAME: terraform-state-bharath-sm-why563
 
     defaults:
       run:
@@ -35,15 +35,10 @@ jobs:
         run: |
           if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
             echo "Creating backend S3 bucket..."
-
-            if [ "$AWS_REGION" = "us-east-1" ]; then
-              aws s3api create-bucket --bucket $BUCKET_NAME
-            else
-              aws s3api create-bucket \
-                --bucket $BUCKET_NAME \
-                --region $AWS_REGION \
-                --create-bucket-configuration LocationConstraint=$AWS_REGION
-            fi
+            aws s3api create-bucket \
+              --bucket $BUCKET_NAME \
+              --create-bucket-configuration LocationConstraint=$AWS_REGION \
+              --region $AWS_REGION
 
             aws s3api put-bucket-versioning \
               --bucket $BUCKET_NAME \
@@ -52,11 +47,13 @@ jobs:
             aws s3api put-bucket-encryption \
               --bucket $BUCKET_NAME \
               --server-side-encryption-configuration '{
-                "Rules": [{
-                  "ApplyServerSideEncryptionByDefault": {
-                    "SSEAlgorithm": "AES256"
+                "Rules": [
+                  {
+                    "ApplyServerSideEncryptionByDefault": {
+                      "SSEAlgorithm": "AES256"
+                    }
                   }
-                }]
+                ]
               }'
           else
             echo "✅ S3 backend bucket already exists."
@@ -67,15 +64,15 @@ jobs:
         with:
           terraform_version: 1.6.0
 
+      - name: 📦 Package Lambda
+        run: zip lambda_function_payload.zip lambda.js
+
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
             -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
             -backend-config="region=$AWS_REGION"
-
-      - name: 🗜️ Zip Lambda Function
-        run: zip lambda_function_payload.zip lambda.js
 
       - name: 🔍 Terraform Plan
         run: terraform plan -var-file="environments/dev.tfvars" -out=tfplan
@@ -94,7 +91,7 @@ jobs:
             echo "| Resource         | Quantity | Estimate         | Monthly Cost |"
             echo "|------------------|----------|------------------|---------------|"
             echo "| Lambda Execution | ~1M req  | ~$0.20/million   | ~$0.20        |"
-            echo "| IAM Role         | 1        | ~$0              | ~$0           |"
+            echo "| Role IAM         | 1        | ~$0              | ~$0           |"
             echo ""
             echo "**Total Estimated Cost:** ~$0.20/month"
           } >> $GITHUB_STEP_SUMMARY
@@ -110,6 +107,9 @@ jobs:
     defaults:
       run:
         working-directory: .
+
+    env:
+      AWS_REGION: us-east-1
 
     steps:
       - name: ✅ Checkout code
@@ -127,10 +127,13 @@ jobs:
         with:
           terraform_version: 1.6.0
 
+      - name: 📦 Package Lambda
+        run: zip lambda_function_payload.zip lambda.js
+
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=$BUCKET_NAME" \
+            -backend-config="bucket=terraform-state-bharath-sm-why563" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
             -backend-config="region=$AWS_REGION"
 
@@ -139,9 +142,6 @@ jobs:
         with:
           name: tfplan
           path: .
-
-      - name: 🗜️ Zip Lambda Function (for apply)
-        run: zip lambda_function_payload.zip lambda.js
 
       - name: 🚀 Terraform Apply
         run: terraform apply tfplan
