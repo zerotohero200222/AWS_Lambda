@@ -1,11 +1,9 @@
 variable "lambda_function_name_prefix" {
-  type        = string
-  default     = "lambda"
   description = "Prefix for the Lambda function name"
+  type        = string
 }
 
 variable "aws_region" {
+  description = "AWS region to deploy to"
   type        = string
-  default     = "us-east-2"
-  description = "AWS region"
 }
