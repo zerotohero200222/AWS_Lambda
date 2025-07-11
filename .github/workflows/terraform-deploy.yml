@@ -1,4 +1,4 @@
-name: Terraform Plan and Apply (Lambda with Cost Estimation & S3 Backend)
+name: Terraform Plan and Apply (Lambda)
 
 on:
   push:
@@ -11,7 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       BUCKET_NAME: terraform-state-bharath-sm-why563
@@ -29,41 +28,10 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: us-east-1
 
-      - name: 📦 Create Backend S3 Bucket (if not exists)
-        run: |
-          if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
-            echo "Creating backend S3 bucket..."
-            if [ "$AWS_REGION" = "us-east-1" ]; then
-              aws s3api create-bucket \
-                --bucket $BUCKET_NAME \
-                --region $AWS_REGION
-            else
-              aws s3api create-bucket \
-                --bucket $BUCKET_NAME \
-                --region $AWS_REGION \
-                --create-bucket-configuration LocationConstraint=$AWS_REGION
-            fi
-
-            aws s3api put-bucket-versioning \
-              --bucket $BUCKET_NAME \
-              --versioning-configuration Status=Enabled
-
-            aws s3api put-bucket-encryption \
-              --bucket $BUCKET_NAME \
-              --server-side-encryption-configuration '{
-                "Rules": [
-                  {
-                    "ApplyServerSideEncryptionByDefault": {
-                      "SSEAlgorithm": "AES256"
-                    }
-                  }
-                ]
-              }'
-          else
-            echo "✅ S3 backend bucket already exists."
-          fi
+      - name: 📦 Package Lambda Function
+        run: zip lambda_function_payload.zip lambda.js
 
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -75,7 +43,7 @@ jobs:
           terraform init \
             -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=$AWS_REGION"
+            -backend-config="region=us-east-1"
 
       - name: 🔍 Terraform Plan
         run: terraform plan -var-file="environments/dev.tfvars" -out=tfplan
@@ -121,6 +89,9 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
+      - name: 📦 Package Lambda Function
+        run: zip lambda_function_payload.zip lambda.js
 
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
