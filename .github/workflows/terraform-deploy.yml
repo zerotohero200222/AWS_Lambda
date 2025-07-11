@@ -1,4 +1,4 @@
-name: Terraform Plan and Apply (Lambda)
+name: Terraform Plan and Apply (Lambda with Cost Estimation & S3 Backend)
 
 on:
   push:
@@ -35,12 +35,11 @@ jobs:
         run: |
           if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
             echo "Creating backend S3 bucket..."
-            if [ "$REGION" = "us-east-1" ]; then
-              aws s3api create-bucket --bucket $BUCKET_NAME --region $REGION
-            else
-              aws s3api create-bucket --bucket $BUCKET_NAME --region $REGION \
-                --create-bucket-configuration LocationConstraint=$REGION
+            CREATE_ARGS="--bucket $BUCKET_NAME --create-bucket-configuration LocationConstraint=$REGION --region $REGION"
+            if [ "$REGION" == "us-east-1" ]; then
+              CREATE_ARGS="--bucket $BUCKET_NAME --region $REGION"
             fi
+            aws s3api create-bucket $CREATE_ARGS
 
             aws s3api put-bucket-versioning \
               --bucket $BUCKET_NAME \
@@ -90,7 +89,7 @@ jobs:
             echo "| Resource         | Quantity | Estimate         | Monthly Cost |"
             echo "|------------------|----------|------------------|---------------|"
             echo "| Lambda Execution | ~1M req  | ~$0.20/million   | ~$0.20        |"
-            echo "| Role IAM         | 1        | ~$0              | ~$0           |"
+            echo "| IAM Role         | 1        | ~$0              | ~$0           |"
             echo ""
             echo "**Total Estimated Cost:** ~$0.20/month"
           } >> $GITHUB_STEP_SUMMARY
@@ -116,7 +115,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.REGION }}
+          aws-region: us-east-1
 
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -126,9 +125,9 @@ jobs:
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=$BUCKET_NAME" \
+            -backend-config="bucket=terraform-state-bharath-sm-why563" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=$REGION"
+            -backend-config="region=us-east-1"
 
       - name: 📥 Download Plan Artifact
         uses: actions/download-artifact@v4
@@ -138,5 +137,4 @@ jobs:
 
       - name: 🚀 Terraform Apply
         run: terraform apply tfplan
-
 
