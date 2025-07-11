@@ -14,6 +14,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       BUCKET_NAME: terraform-state-bharath-sm-why563
+      AWS_REGION: us-east-1
 
     defaults:
       run:
@@ -28,16 +29,21 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: 📦 Create Backend S3 Bucket (if not exists)
         run: |
           if ! aws s3api head-bucket --bucket $BUCKET_NAME 2>/dev/null; then
             echo "Creating backend S3 bucket..."
-            aws s3api create-bucket \
-              --bucket $BUCKET_NAME \
-              --create-bucket-configuration LocationConstraint=us-east-1 \
-              --region us-east-1
+
+            if [ "$AWS_REGION" = "us-east-1" ]; then
+              aws s3api create-bucket --bucket $BUCKET_NAME
+            else
+              aws s3api create-bucket \
+                --bucket $BUCKET_NAME \
+                --region $AWS_REGION \
+                --create-bucket-configuration LocationConstraint=$AWS_REGION
+            fi
 
             aws s3api put-bucket-versioning \
               --bucket $BUCKET_NAME \
@@ -66,7 +72,7 @@ jobs:
           terraform init \
             -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=us-east-1"
+            -backend-config="region=$AWS_REGION"
 
       - name: 🗜️ Zip Lambda Function
         run: zip lambda_function_payload.zip lambda.js
@@ -114,7 +120,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: 🧰 Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -124,9 +130,9 @@ jobs:
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=terraform-state-bharath-sm-why563" \
+            -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=us-east-1"
+            -backend-config="region=$AWS_REGION"
 
       - name: 📥 Download Plan Artifact
         uses: actions/download-artifact@v4
@@ -134,9 +140,10 @@ jobs:
           name: tfplan
           path: .
 
-      - name: 🗜️ Zip Lambda Function (again for apply)
+      - name: 🗜️ Zip Lambda Function (for apply)
         run: zip lambda_function_payload.zip lambda.js
 
       - name: 🚀 Terraform Apply
         run: terraform apply tfplan
+
 
