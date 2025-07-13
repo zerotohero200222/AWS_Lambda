@@ -1,2 +1,6 @@
-aws_region                 = "us-east-2"
-lambda_function_name_prefix = "lambda-dev"
+aws_region               = "us-east-2"
+lambda_function_name_prefix = "myapp"
+lambda_handler           = "index.test"
+lambda_runtime           = "nodejs18.x"
+lambda_source_file       = "lambda.js"
+lambda_output_path       = "lambda_function_payload.zip"
