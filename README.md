@@ -1,125 +1,91 @@
-# AWS_Lambda
-# 🚀 AWS Lambda Deployment Using Terraform and GitHub Actions
 
-This project demonstrates how to **deploy an AWS Lambda function** using **Terraform** infrastructure-as-code and automate it via a **CI/CD pipeline with GitHub Actions**.
+# 🚀 Terraform Lambda Deployment with GitHub Actions
 
----
+## 📖 Overview
 
-## 🧩 Project Overview
-
-The repository is designed to:
-
-* Define AWS infrastructure using **Terraform**
-* Package and deploy a **Node.js Lambda function**
-* Use **GitHub Actions** to automate deployment to AWS on every `push` to the `main` branch
+This project demonstrates how to provision and deploy an AWS Lambda function using Terraform, with infrastructure as code managed in a modular and reusable format. The entire deployment process is automated via GitHub Actions CI/CD workflows, ensuring secure, repeatable, and environment-specific deployments.
 
 ---
 
-## 🔧 What’s Included?
+## 🧱 Architecture
 
-### 1. **Lambda Function**
+The infrastructure includes the following AWS resources:
 
-The project deploys a simple AWS Lambda function written in **Node.js** (`lambda.js`). The function returns a "Hello from Lambda!" response. You can customize this function as needed.
-
-### 2. **IAM Role for Lambda**
-
-Terraform creates an **IAM Role** with a trust policy that allows **Lambda** to assume it. This is a minimal role required to execute the function.
-
-### 3. **Lambda Packaging**
-
-Terraform uses the `archive_file` data source to package the Lambda function into a `.zip` file for deployment.
-
-### 4. **Randomization**
-
-To avoid naming collisions, Terraform generates random suffixes for resource names (e.g., the Lambda function name).
+* **AWS Lambda Function**: A simple serverless function written in JavaScript (`lambda.js`) deployed using Terraform.
+* **IAM Role**: A role that grants the Lambda function permission to execute.
+* **S3 Bucket (Terraform Backend)**: Stores the Terraform state file securely and consistently across environments.
+* **Terraform Artifacts**: A `lambda_function_payload.zip` package created from the Lambda source code.
+* **GitHub Actions Workflows**: Automates Terraform plan and apply steps, with built-in cost estimation and manual approval gates.
 
 ---
 
-## 🔁 CI/CD Pipeline with GitHub Actions
-
-Every time you **push to the `main` branch**, GitHub Actions automatically:
-
-1. **Checks out the code**
-2. **Installs Terraform**
-3. **Authenticates to AWS using secrets**
-4. **Runs `terraform init`**
-5. **Runs `terraform plan`**
-6. **Applies the Terraform plan to provision resources**
-
-This pipeline provides **automated, consistent, and repeatable deployments**.
 
 ---
 
-## 🚀 Getting Started
+## ⚙️ Features
 
-### ✅ Prerequisites
-
-* An **AWS account**
-* An IAM user with permissions to create:
-
-  * Lambda Functions
-  * IAM Roles
-  * CloudWatch Logs
-* Terraform installed (>= v1.2)
-* Node.js installed (for authoring Lambda)
-* GitHub repository with:
-
-  * `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` saved in **GitHub secrets**
-
-### 🛠 Steps
-
-1. **Clone the repository**
-
-   ```bash
-   git clone https://github.com/your-username/terraform-aws-lambda.git
-   cd terraform-aws-lambda
-   ```
-
-2. **Write your Lambda code**
-   Edit `lambda.js` to contain your function logic.
-
-3. **Commit and Push**
-   Push changes to `main` to trigger the GitHub Actions pipeline.
-
-4. **Terraform runs automatically**
-   Your Lambda will be deployed, and function name will be shown in workflow output.
+* **Infrastructure as Code (IaC)** using Terraform for consistent and predictable deployments.
+* **CI/CD with GitHub Actions** to automate plan and apply stages.
+* **Environment Isolation** using separate `*.tfvars` files for dev, uat, and prod.
+* **Cost Summary Report** to estimate monthly cloud costs before provisioning.
+* **Secure AWS Credential Handling** via GitHub secrets.
+* **Manual Approval Workflow** before applying infrastructure changes to cloud.
 
 ---
 
-## 🔐 Secrets Setup (GitHub)
+## 📋 Workflow Summary
 
-In your repository settings:
+The GitHub Actions workflow performs the following steps:
 
-1. Go to **Settings > Secrets and variables > Actions**
-2. Add:
-
-   * `AWS_ACCESS_KEY_ID`
-   * `AWS_SECRET_ACCESS_KEY`
-
----
-
-## 📤 Outputs
-
-After a successful deployment, Terraform will output the **Lambda function name** (e.g., `lambda-xyz123`). You can verify the function in the AWS Lambda console under region `us-east-2`.
+1. **Code Checkout**: Retrieves the code from the GitHub repository.
+2. **AWS Authentication**: Uses stored secrets to authenticate to AWS.
+3. **S3 Bucket Validation**: Ensures the remote state bucket exists (creates it if missing).
+4. **Lambda Packaging**: Zips the source code before deployment.
+5. **Terraform Initialization**: Prepares the Terraform backend and providers.
+6. **Terraform Plan**: Generates an execution plan and uploads it as an artifact.
+7. **Cost Estimation**: Provides a breakdown of expected monthly AWS costs.
+8. **Manual Approval**: Requires a reviewer to approve before applying changes.
+9. **Terraform Apply**: Applies infrastructure changes using the uploaded plan.
 
 ---
 
-## 🔄 Making Changes
+## 🔐 Security Practices
 
-* Modify the Lambda code → Commit → Push
-* GitHub Actions redeploys automatically
+* **AWS credentials** are stored in GitHub Secrets and never hardcoded.
+* **Terraform state** is stored in versioned, encrypted S3 buckets.
+* **IAM roles** are limited in scope and grant only necessary permissions.
+
+---
+
+## 🌍 Supported Environments
+
+* `dev`
+* `uat`
+* `prod`
+
+Each environment can be targeted by using its respective `.tfvars` file, keeping infrastructure deployments clean, isolated, and manageable.
 
 ---
 
-## 🧼 Clean-Up
+## 🧪 Prerequisites
 
-To destroy the resources **manually**, you can run:
+To use or adapt this project, ensure:
 
-```bash
-terraform destroy --auto-approve
-```
+* You have access to an AWS account with permissions to create IAM roles, Lambda functions, and S3 buckets.
+* GitHub repository secrets are correctly configured:
 
-> ⚠️ Destruction step is **not included in the CI/CD pipeline** by design to prevent accidental deletion.
+  * `AWS_ACCESS_KEY_ID`
+  * `AWS_SECRET_ACCESS_KEY`
+* The GitHub Actions runner has access to Terraform and AWS CLI.
 
 ---
+
+## ✅ Use Cases
+
+* Deploying serverless microservices automatically on code pushes.
+* Enforcing review gates before infrastructure modifications.
+* Estimating and monitoring monthly cloud costs pre-deployment.
+* Maintaining infrastructure consistency across multiple environments.
+
+
 
