@@ -13,7 +13,7 @@ jobs:
     env:
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      BUCKET_NAME: terraform-state-bharath-sm-why563
+      BUCKET_NAME: terraform-state-bharath-lambda
 
     defaults:
       run:
@@ -28,9 +28,9 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: us-east-2
 
-      - name: 📦 Package Lambda Function
+      - name: 📦 Package Lambda (ZIP)
         run: zip lambda_function_payload.zip lambda.js
 
       - name: 🧰 Setup Terraform
@@ -43,7 +43,7 @@ jobs:
           terraform init \
             -backend-config="bucket=$BUCKET_NAME" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=us-east-1"
+            -backend-config="region=us-east-2"
 
       - name: 🔍 Terraform Plan
         run: terraform plan -var-file="environments/dev.tfvars" -out=tfplan
@@ -62,7 +62,7 @@ jobs:
             echo "| Resource         | Quantity | Estimate         | Monthly Cost |"
             echo "|------------------|----------|------------------|---------------|"
             echo "| Lambda Execution | ~1M req  | ~$0.20/million   | ~$0.20        |"
-            echo "| Role IAM         | 1        | ~$0              | ~$0           |"
+            echo "| IAM Role         | 1        | ~$0              | ~$0.00        |"
             echo ""
             echo "**Total Estimated Cost:** ~$0.20/month"
           } >> $GITHUB_STEP_SUMMARY
@@ -88,9 +88,9 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
+          aws-region: us-east-2
 
-      - name: 📦 Package Lambda Function
+      - name: 📦 Package Lambda (ZIP)
         run: zip lambda_function_payload.zip lambda.js
 
       - name: 🧰 Setup Terraform
@@ -101,9 +101,9 @@ jobs:
       - name: ⚙️ Terraform Init
         run: |
           terraform init \
-            -backend-config="bucket=terraform-state-bharath-sm-why563" \
+            -backend-config="bucket=terraform-state-bharath-lambda" \
             -backend-config="key=lambda/dev/terraform.tfstate" \
-            -backend-config="region=us-east-1"
+            -backend-config="region=us-east-2"
 
       - name: 📥 Download Plan Artifact
         uses: actions/download-artifact@v4
